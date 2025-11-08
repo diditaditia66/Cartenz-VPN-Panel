@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tambah Akun — Cartenz VPN</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .container{max-width:1050px;margin:0 auto;padding:20px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#0e1623;color:#c6d3e3;cursor:pointer}
+  .tab.active{background:#17263b;border-color:#294268;color:#fff}
+  .terminal{
+    background:#0a1016;border:1px solid var(--line);border-radius:14px;
+    padding:12px;min-height:240px;white-space:pre-wrap;overflow:auto;
+    font-family:ui-monospace,Menlo,Consolas,monospace
+  }
+  .topbar{display:flex;gap:10px;align-items:center;margin:20px 0}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="btn" href="/index.html">← Kembali</a>
+  <h1>Tambah Akun</h1>
+  <span class="right"></span>
+  <a class="btn warn" href="/trial.html">Trial</a>
+  <a id="navManage" class="btn" href="/manage.html">Manage</a>
+  <span id="whoami" class="pill">—</span>
+  <span id="saldo" class="pill">Saldo: Rp 0</span>
+  <button id="navLogout" class="btn err">Logout</button>
+</nav>
+
+<div class="container">
+  <div class="card">
+    <div class="sub">Pilih layanan:</div>
+    <div class="tabs" id="addTabs">
+      <button class="tab active" data-kind="ssh">SSH</button>
+      <button class="tab" data-kind="vmess">VMess</button>
+      <button class="tab" data-kind="vless">VLess</button>
+      <button class="tab" data-kind="trojan">Trojan</button>
+      <button class="tab" data-kind="ss">Shadowsocks</button>
+    </div>
+
+    <!-- SSH form -->
+    <div id="add-ssh" class="card">
+      <div class="title">Add SSH</div>
+      <div class="row">
+        <input id="ssh_user" class="input" placeholder="username">
+        <input id="ssh_pass" class="input" placeholder="password (kosong = auto)">
+        <input id="ssh_days" class="input" type="number" min="1" value="30">
+        <button id="btnAddSSH" class="btn ok" disabled>Tambah</button>
+      </div>
+      <div class="sub">Tombol aktif jika <b>username</b> terisi.</div>
+    </div>
+
+    <!-- Generic form -->
+    <div id="add-generic" class="card hidden">
+      <div class="title" id="genTitle">Add VMess</div>
+      <div class="row">
+        <input id="gen_remarks" class="input" placeholder="remarks / username">
+        <input id="gen_days" class="input" type="number" min="1" value="30">
+        <button id="btnAddGeneric" class="btn ok" disabled>Tambah</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="card">
+    <div class="row">
+      <div class="title">Output</div>
+      <span class="right"></span>
+      <div class="toolbar">
+        <button id="btnCopyA" class="btn ghost">📋 Salin</button>
+        <button id="btnClearA" class="btn ghost">🧹 Bersihkan</button>
+      </div>
+    </div>
+    <pre id="outA" class="terminal"></pre>
+  </div>
+</div>
+
+<script src="/assets/core.js"></script>
+<script>
+(async () => {
+  // Fallback minimal bila streamJob belum ada di core.js
+  if (typeof window.streamJob !== "function") {
+    window.streamJob = async ({ startPath, body, outEl, onLine, onBalance }) => {
+      const res = await fetch(startPath, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify(body || {})
+      });
+      const { jobId } = await res.json();
+      const es = new EventSource(`/api/stream/job/${jobId}`);
+      es.onmessage = (e) => {
+        const msg = JSON.parse(e.data || "{}");
+        if (msg.type === "line") {
+          if (outEl) outEl.textContent += (outEl.textContent ? "\n" : "") + msg.data;
+          if (typeof onLine === "function") onLine(msg.data);
+        } else if (msg.type === "balance" && typeof onBalance === "function") {
+          onBalance(msg.amount);
+        } else if (msg.type === "done") {
+          es.close();
+        }
+      };
+      return es;
+    };
+  }
+
+  const user = await ensureLoginAndFillBadge();
+  if (!user) return;
+
+  // Tabs
+  let addKind = "ssh";
+  function setAddKind(k){
+    addKind = k;
+    $$("#addTabs .tab").forEach(t=>t.classList.toggle("active", t.dataset.kind===k));
+    if (k === "ssh") {
+      $("#add-ssh").classList.remove("hidden");
+      $("#add-generic").classList.add("hidden");
+    } else {
+      $("#add-ssh").classList.add("hidden");
+      $("#add-generic").classList.remove("hidden");
+      $("#genTitle").textContent = "Add " + k.toUpperCase();
+    }
+    validateAdd();
+  }
+  $$("#addTabs .tab").forEach(t=> t.onclick=()=> setAddKind(t.dataset.kind));
+
+  // Validate
+  function validateAdd(){
+    $("#btnAddSSH").disabled = !$("#ssh_user").value.trim();
+    $("#btnAddGeneric").disabled = !$("#gen_remarks").value.trim();
+  }
+  $("#ssh_user").oninput = validateAdd;
+  $("#gen_remarks").oninput = validateAdd;
+
+  // Helpers output
+  const outA = $("#outA");
+  $("#btnCopyA").onclick = ()=> navigator.clipboard.writeText(outA.textContent||"");
+  $("#btnClearA").onclick = ()=> { outA.textContent = ""; };
+
+  function notify(msg){ alert(msg); }
+  function updateSaldoBadge(amount){
+    const el = $("#saldo");
+    if (el) el.textContent = "Saldo: Rp " + Number(amount||0).toLocaleString("id-ID");
+  }
+
+  // Add SSH
+  $("#btnAddSSH").onclick = async () => {
+    const username = $("#ssh_user").value.trim();
+    const password = $("#ssh_pass").value;
+    const days = parseInt($("#ssh_days").value || "30", 10);
+    outA.textContent += (outA.textContent ? "\n" : "") + `$ add ssh ${username} ${days}d ...`;
+
+    await streamJob({
+      startPath: "/api/sse/add/ssh",
+      body: { username, password, days },
+      outEl: outA,
+      onLine: (line) => {
+        if (line.includes("Saldo tidak cukup")) {
+          notify("❌ Saldo tidak cukup. Top up via Telegram.");
+        }
+      },
+      onBalance: (amt) => updateSaldoBadge(amt),
+    });
+  };
+
+  // Add Generic (vmess/vless/trojan/ss)
+  $("#btnAddGeneric").onclick = async () => {
+    const remarks = $("#gen_remarks").value.trim();
+    const days = parseInt($("#gen_days").value || "30", 10);
+    outA.textContent += (outA.textContent ? "\n" : "") + `$ add ${addKind} ${remarks} ${days}d ...`;
+
+    await streamJob({
+      startPath: `/api/sse/add/${addKind}`,
+      body: { remarks, days },
+      outEl: outA,
+      onLine: (line) => {
+        if (line.includes("Saldo tidak cukup")) {
+          notify("❌ Saldo tidak cukup. Top up via Telegram.");
+        }
+      },
+      onBalance: (amt) => updateSaldoBadge(amt),
+    });
+  };
+})();
+</script>
+</body>
+</html>
+

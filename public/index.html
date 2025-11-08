@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cartenz VPN Premium</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
+<style>
+/* Tambahan kecil untuk badge/topbar */
+.topbar {display:flex;gap:10px;align-items:center;margin:20px auto;max-width:1050px}
+.topbar .pill{margin-right:6px}
+.center-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center}
+.login-card{max-width:420px;width:100%}
+.tile{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);background:#0e1623;border-radius:16px;padding:16px;cursor:pointer}
+.tile:hover{border-color:var(--accent)}
+.icon{width:36px;height:36px;border-radius:10px;background:#152236;display:flex;align-items:center;justify-content:center}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.container{max-width:1050px;margin:0 auto;padding:20px}
+</style>
+</head>
+<body>
+
+<!-- ====== TOPBAR (muncul saat login) ====== -->
+<nav class="topbar" id="navBar" style="display:none">
+  <span id="whoami" class="pill">—</span>
+  <span id="saldo"  class="pill">Saldo: Rp 0</span>
+  <a class="btn ghost" href="https://t.me/Cartenz_VPN" target="_blank" rel="noopener">Top Up via Telegram</a>
+  <span class="right"></span>
+  <a id="navAdmin"  class="btn" href="/admin.html">Admin</a>
+  <a id="navManage" class="btn" href="/manage.html">Manage</a>
+  <a class="btn ok"   href="/add.html">Add</a>
+  <a class="btn warn" href="/trial.html">Trial</a>
+  <button id="btnChangePwd" class="btn">Ganti Password</button>
+  <button id="navLogout" class="btn err">Logout</button>
+</nav>
+
+<!-- ====== LOGIN ====== -->
+<section id="scr-login" class="center-wrap">
+  <div class="card login-card">
+    <div class="title">Masuk ke Cartenz VPN Premium</div>
+    <div class="sub">Silakan login terlebih dahulu.</div>
+    <div class="row">
+      <input id="lg-user" class="input" placeholder="username" autocomplete="username">
+      <input id="lg-pass" class="input" placeholder="password" type="password" autocomplete="current-password">
+    </div>
+    <div class="spacer"></div>
+    <div class="row">
+      <button id="btnLogin" class="btn primary">Login</button>
+      <span id="loginMsg" class="muted"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ====== HOME ====== -->
+<section id="scr-home" style="display:none">
+  <div class="container">
+    <div class="grid">
+      <a class="tile" href="/add.html"><div class="icon">➕</div><div>
+        <h3>Add Account</h3><div class="muted">Buat akun SSH/VMess/VLess/Trojan/SS.</div></div></a>
+      <a class="tile" href="/trial.html"><div class="icon">⚡</div><div>
+        <h3>Trial Account</h3><div class="muted">Buat trial 1 hari (1×/hari).</div></div></a>
+      <a class="tile" id="tileManage" href="/manage.html"><div class="icon">🛠️</div><div>
+        <h3>Manage (Admin)</h3><div class="muted">Lihat & hapus akun per layanan.</div></div></a>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODAL GANTI PASSWORD ====== -->
+<div id="modalPwd" class="modal-wrap" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pwdTitle">
+    <div class="modal-header">
+      <h3 id="pwdTitle">Ganti Password</h3>
+      <span class="right"></span>
+      <button id="pwdClose" class="btn ghost" aria-label="Tutup">✕</button>
+    </div>
+    <div class="row">
+      <input id="oldPwd" class="input" type="password" placeholder="Password lama">
+      <input id="newPwd" class="input" type="password" placeholder="Password baru (min 6)">
+      <input id="newPwd2" class="input" type="password" placeholder="Ulangi password baru">
+    </div>
+    <div class="modal-footer">
+      <button id="pwdCancel" class="btn">Batal</button>
+      <button id="pwdSave" class="btn ok">Simpan</button>
+    </div>
+    <div id="pwdMsg" class="sub muted"></div>
+  </div>
+</div>
+
+<script src="/assets/core.js"></script>
+<script>
+(async () => {
+  // Jika sudah login, tampilkan home
+  try {
+    const { user } = await api("/api/me",{method:"GET"});
+    if (user) {
+      $("#navBar").style.display = "";
+      $("#scr-home").style.display = "";
+      $("#scr-login").style.display = "none";
+      $("#whoami").textContent = `Login: ${user.username} (${user.role})`;
+      $("#saldo").textContent  = `Saldo: Rp ${Number(user.balance||0).toLocaleString("id-ID")}`;
+      if (user.role !== "admin") { $("#navAdmin").style.display="none"; $("#navManage").style.display="none"; $("#tileManage").style.display="none"; }
+    } else {
+      $("#scr-login").style.display = "";
+    }
+  } catch { $("#scr-login").style.display = ""; }
+
+  // Login
+  $("#btnLogin").onclick = async () => {
+    $("#loginMsg").textContent = "";
+    try {
+      const username = $("#lg-user").value.trim();
+      const password = $("#lg-pass").value;
+      await api("/api/login", { method:"POST", body: JSON.stringify({username,password}) });
+      location.reload();
+    } catch(e) {
+      $("#loginMsg").textContent = "❌ " + e.message;
+    }
+  };
+
+  // Ganti password
+  const modal = $("#modalPwd");
+  const openPwd = ()=>{ modal.classList.add("open"); $("#pwdMsg").textContent=""; $("#oldPwd").focus(); };
+  const closePwd= ()=>{ modal.classList.remove("open"); ["oldPwd","newPwd","newPwd2"].forEach(id=>$("#"+id).value=""); };
+  $("#btnChangePwd").onclick = openPwd;
+  $("#pwdClose").onclick = closePwd;
+  $("#pwdCancel").onclick = closePwd;
+  $("#pwdSave").onclick = async ()=>{
+    const o = $("#oldPwd").value, n1 = $("#newPwd").value, n2 = $("#newPwd2").value;
+    if(!o)  return $("#pwdMsg").textContent = "❌ Password lama wajib diisi";
+    if(n1.length<6) return $("#pwdMsg").textContent = "❌ Password baru minimal 6 karakter";
+    if(n1!==n2) return $("#pwdMsg").textContent = "❌ Ulangi password baru tidak sama";
+    try{
+      await api("/api/change-password",{method:"POST",body:JSON.stringify({oldPassword:o,newPassword:n1})});
+      $("#pwdMsg").textContent = "✅ Password berhasil diganti"; setTimeout(closePwd, 800);
+    }catch(e){ $("#pwdMsg").textContent = "❌ "+e.message; }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Trial Akun — Cartenz VPN</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .container{max-width:1050px;margin:0 auto;padding:20px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#0e1623;color:#c6d3e3;cursor:pointer}
+  .tab.active{background:#17263b;border-color:#294268;color:#fff}
+  .terminal{
+    background:#0a1016;border:1px solid var(--line);border-radius:14px;
+    padding:12px;min-height:240px;white-space:pre-wrap;overflow:auto;
+    font-family:ui-monospace,Menlo,Consolas,monospace
+  }
+  .topbar{display:flex;gap:10px;align-items:center;margin:20px 0}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="btn" href="/index.html">← Kembali</a>
+  <h1>Trial Akun</h1>
+  <span class="right"></span>
+  <a class="btn ok" href="/add.html">Add</a>
+  <a id="navManage" class="btn" href="/manage.html">Manage</a>
+  <span id="whoami" class="pill">—</span>
+  <span id="saldo" class="pill">Saldo: Rp 0</span>
+  <button id="navLogout" class="btn err">Logout</button>
+</nav>
+
+<div class="container">
+  <div class="card flat">
+    <div class="sub">Pilih layanan trial (1×/hari):</div>
+    <div class="tabs" id="trialTabs">
+      <button class="tab active" data-kind="ssh">SSH</button>
+      <button class="tab" data-kind="vmess">VMess</button>
+      <button class="tab" data-kind="vless">VLess</button>
+      <button class="tab" data-kind="trojan">Trojan</button>
+      <button class="tab" data-kind="ss">Shadowsocks</button>
+    </div>
+    <button id="btnDoTrial" class="btn warn big">Buat Trial</button>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="card">
+    <div class="row">
+      <div class="title">Output</div>
+      <span class="right"></span>
+      <div class="toolbar">
+        <button id="btnCopyT" class="btn ghost">📋 Salin</button>
+        <button id="btnClearT" class="btn ghost">🧹 Bersihkan</button>
+      </div>
+    </div>
+    <pre id="outT" class="terminal"></pre>
+  </div>
+</div>
+
+<script src="/assets/core.js"></script>
+<script>
+(async () => {
+  // Fallback minimal bila streamJob belum ada di core.js
+  if (typeof window.streamJob !== "function") {
+    window.streamJob = async ({ startPath, body, outEl, onLine }) => {
+      const res = await fetch(startPath, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify(body || {})
+      });
+      const { jobId } = await res.json();
+      const es = new EventSource(`/api/stream/job/${jobId}`);
+      es.onmessage = (e) => {
+        const msg = JSON.parse(e.data || "{}");
+        if (msg.type === "line") {
+          if (outEl) outEl.textContent += (outEl.textContent ? "\n" : "") + msg.data;
+          if (typeof onLine === "function") onLine(msg.data);
+        } else if (msg.type === "done") {
+          es.close();
+        }
+      };
+      return es;
+    };
+  }
+
+  const user = await ensureLoginAndFillBadge();
+  if (!user) return;
+
+  // Tabs
+  let trialKind = "ssh";
+  function setTrialKind(k){
+    trialKind = k;
+    $$("#trialTabs .tab").forEach(t=>t.classList.toggle("active", t.dataset.kind===k));
+  }
+  $$("#trialTabs .tab").forEach(t=> t.onclick=()=> setTrialKind(t.dataset.kind));
+
+  const outT = $("#outT");
+  $("#btnCopyT").onclick = ()=> navigator.clipboard.writeText(outT.textContent||"");
+  $("#btnClearT").onclick = ()=> { outT.textContent = ""; };
+
+  function notify(msg){ alert(msg); }
+
+  $("#btnDoTrial").onclick = async ()=>{
+    outT.textContent += (outT.textContent ? "\n" : "") + `$ trial ${trialKind} ...`;
+    await streamJob({
+      startPath: `/api/sse/trial/${trialKind}`,
+      body: {},
+      outEl: outT,
+      onLine: (line) => {
+        if (line.includes("Trial hari ini sudah digunakan")) {
+          notify("⛔ Trial hari ini sudah dipakai. Coba lagi besok.");
+        }
+      }
+    });
+  };
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin Panel — Cartenz VPN</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
+<style>
+.container{max-width:1050px;margin:0 auto;padding:20px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+.topbar{display:flex;gap:10px;align-items:center;margin:20px 0}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;font-size:13px}
+th{color:#b9c6d8}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="btn" href="/index.html">← Kembali</a>
+  <h1>Admin Panel</h1>
+  <span class="right"></span>
+  <button id="btnRefreshUsers" class="btn">Refresh</button>
+  <span id="whoami" class="pill">—</span>
+  <span id="saldo" class="pill">Saldo: Rp 0</span>
+  <button id="navLogout" class="btn err">Logout</button>
+</nav>
+
+<div class="container">
+  <div class="grid">
+    <div class="card">
+      <div class="title">Create User</div>
+      <div class="row">
+        <input id="adm_new_user" class="input" placeholder="username">
+        <input id="adm_new_pass" class="input" placeholder="password (kosong=changeme123)">
+        <select id="adm_new_role" class="input">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+        <input id="adm_new_balance" class="input" type="number" placeholder="saldo awal (Rp)" value="0" min="0">
+      </div>
+      <div class="spacer"></div>
+      <button id="adm_btn_create" class="btn ok">Buat User</button>
+      <div id="adm_create_msg" class="sub"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">Add Balance</div>
+      <div class="row">
+        <input id="adm_bal_user" class="input" placeholder="username">
+        <input id="adm_bal_amount" class="input" type="number" placeholder="jumlah (Rp)" value="10000" min="1">
+      </div>
+      <div class="spacer"></div>
+      <button id="adm_btn_addbal" class="btn ok">Tambah Saldo</button>
+      <div id="adm_bal_msg" class="sub"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">Daftar User</div>
+      <div class="sub">Berisi username, role, saldo, dan last trial.</div>
+      <div class="hr"></div>
+      <table id="adm_tbl_users"><thead><tr><th>Username</th><th>Role</th><th>Saldo (Rp)</th><th>Last Trial</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/core.js"></script>
+<script>
+(async () => {
+  const user = await ensureLoginAndFillBadge();
+  if (!user) return;
+  if (user.role !== "admin") { alert("Hanya admin."); location.href="/index.html"; return; }
+
+  async function refreshUsers(){
+    try{
+      const r = await api("/api/admin/users",{method:"GET"});
+      const tb = $("#adm_tbl_users tbody"); tb.innerHTML = "";
+      (r.users||[]).forEach(u=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${esc(u.username)}</td><td>${esc(u.role)}</td><td>${Number(u.balance||0).toLocaleString("id-ID")}</td><td>${esc(u.lastTrialDate||"-")}</td>`;
+        tb.appendChild(tr);
+      });
+    }catch(e){
+      const tb = $("#adm_tbl_users tbody");
+      tb.innerHTML = `<tr><td colspan="4" class="muted">Gagal memuat daftar user: ${esc(e.message)}</td></tr>`;
+    }
+  }
+  $("#btnRefreshUsers").onclick = refreshUsers;
+  refreshUsers();
+
+  $("#adm_btn_create").onclick = async ()=>{
+    const username = $("#adm_new_user").value.trim();
+    const password = $("#adm_new_pass").value;
+    const role     = $("#adm_new_role").value;
+    const balance  = Number($("#adm_new_balance").value||0);
+    const msg = $("#adm_create_msg"); msg.textContent = "";
+    if(!username) return msg.textContent = "❌ username wajib diisi";
+    try{
+      await api("/api/admin/create-user",{method:"POST",body:JSON.stringify({username,password,role,balance})});
+      msg.textContent = "✅ User dibuat"; refreshUsers();
+    }catch(e){ msg.textContent="❌ "+e.message; }
+  };
+
+  $("#adm_btn_addbal").onclick = async ()=>{
+    const username = $("#adm_bal_user").value.trim();
+    const amount   = Number($("#adm_bal_amount").value||0);
+    const msg = $("#adm_bal_msg"); msg.textContent="";
+    if(!username || !amount) return msg.textContent = "❌ username & amount wajib diisi";
+    try{
+      const r = await api("/api/admin/add-balance",{method:"POST",body:JSON.stringify({username,amount})});
+      msg.textContent = "✅ Saldo user sekarang: Rp " + Number(r.balance||0).toLocaleString("id-ID");
+      if (user.username === username) $("#saldo").textContent = "Saldo: Rp " + Number(r.balance||0).toLocaleString("id-ID");
+      refreshUsers();
+    }catch(e){ msg.textContent = "❌ "+e.message; }
+  };
+})();
+</script>
+</body>
+</html>

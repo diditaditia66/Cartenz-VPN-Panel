@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Manage Akun — Cartenz VPN</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
+<style>
+.container{max-width:1050px;margin:0 auto;padding:20px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#0e1623;color:#c6d3e3;cursor:pointer}
+.tab.active{background:#17263b;border-color:#294268;color:#fff}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;font-size:13px}
+th{color:#b9c6d8}
+.topbar{display:flex;gap:10px;align-items:center;margin:20px 0}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="btn" href="/index.html">← Kembali</a>
+  <h1>Manage Akun</h1>
+  <span class="right"></span>
+  <a class="btn ok" href="/add.html">Add</a>
+  <a class="btn warn" href="/trial.html">Trial</a>
+  <span id="refTime" class="pill">—</span>
+  <span id="whoami" class="pill">—</span>
+  <span id="saldo" class="pill">Saldo: Rp 0</span>
+  <button id="navLogout" class="btn err">Logout</button>
+</nav>
+
+<div class="container">
+  <div class="card flat">
+    <div class="sub">Pilih layanan untuk melihat daftarnya:</div>
+    <div class="tabs" id="manTabs">
+      <button class="tab active" data-kind="ssh">SSH</button>
+      <button class="tab" data-kind="vmess">VMess</button>
+      <button class="tab" data-kind="vless">VLess</button>
+      <button class="tab" data-kind="trojan">Trojan</button>
+      <button class="tab" data-kind="ss">Shadowsocks</button>
+    </div>
+    <div class="card">
+      <table id="tbl">
+        <thead><tr><th>Nama</th><th>Expired</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/core.js"></script>
+<script>
+(async () => {
+  const user = await ensureLoginAndFillBadge();
+  if (!user) return;
+  if (user.role !== "admin") { alert("Hanya admin."); location.href="/index.html"; return; }
+
+  let manKind = "ssh";
+  async function refresh() {
+    await loadAccounts(manKind, $("#tbl tbody"), $("#refTime"));
+    // bind delete
+    $("#tbl tbody").querySelectorAll("[data-del]").forEach(b=>{
+      b.onclick = async ()=>{
+        const name = b.dataset.del;
+        if (!confirm(`Hapus ${manKind} ${name}?`)) return;
+        try { const res = await deleteAccount(manKind, name); alert("OK: " + (res.output||"deleted")); refresh(); }
+        catch(e){ alert(e.message); }
+      };
+    });
+  }
+
+  $$("#manTabs .tab").forEach(t=> t.onclick=()=>{ 
+    $$("#manTabs .tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    manKind = t.dataset.kind; refresh();
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>

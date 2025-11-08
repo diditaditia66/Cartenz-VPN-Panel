@@ -1,0 +1,85 @@
+:root{
+  --bg:#0b1117; --panel:#0f1724; --panel2:#0d1520;
+  --ink:#e6edf3; --muted:#97a3b4; --line:#1e2a39;
+  --accent:#66b2ff; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+     font:14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+a{color:inherit;text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:22px}
+
+/* Cards & controls */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card.flat{background:transparent;border-color:transparent}
+.title{font-weight:700;font-size:18px;margin-bottom:8px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:14px}
+.grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width: 980px){.grid.cols-3{grid-template-columns:1fr}}
+.input{background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--ink);
+       padding:10px 12px;min-width:160px;outline:none}
+.input:focus{border-color:var(--accent)}
+select.input{padding-right:28px}
+
+/* Buttons */
+.btn{appearance:none;border:1px solid var(--line);background:#132033;color:var(--ink);
+     padding:10px 14px;border-radius:12px;cursor:pointer;transition:.12s border-color,.12s background}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:#183053;border-color:#294268}
+.btn.ok{background:#0f2a1c;border-color:#1d6d45}
+.btn.warn{background:#2f250e;border-color:#6c5321}
+.btn.err{background:#3a1f24;border-color:#6e3039}
+.btn.ghost{background:transparent}
+.btn.big{padding:14px 18px;font-size:15px;border-radius:16px}
+
+/* Chips, dividers */
+.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:#121b29}
+.muted{color:var(--muted)}
+.spacer{height:14px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+.right{margin-left:auto}
+
+/* Screens (hanya index) */
+.screen{display:none} .screen.active{display:block}
+
+/* Topbar */
+.topbar{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+.topbar h1{font-size:22px;margin:0}
+
+/* Terminal / table */
+.terminal{background:#0a1016;border:1px solid var(--line);border-radius:14px;padding:12px;
+          min-height:220px;white-space:pre-wrap;overflow:auto;
+          font-family:ui-monospace,Menlo,Consolas,monospace}
+.toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;font-size:13px}
+th{color:#b9c6d8}
+
+/* Tiles */
+.tile{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);
+      background:#0e1623;border-radius:16px;padding:16px;cursor:pointer}
+.tile:hover{border-color:var(--accent)}
+.tile .icon{width:36px;height:36px;border-radius:10px;background:#152236;display:flex;align-items:center;justify-content:center}
+.tile h3{margin:0 0 4px 0}
+
+/* Tabs */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tab{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#0e1623;color:#c6d3e3;cursor:pointer}
+.tab.active{background:#17263b;border-color:#294268;color:#fff}
+
+/* Login full-screen (index) */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{max-width:420px;width:100%}
+.hidden{display:none!important}
+
+/* Modal sederhana (ubah password) */
+.modal-wrap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+            background:rgba(0,0,0,.45);z-index:50;padding:16px}
+.modal-wrap.open{display:flex}
+.modal-card{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);
+            border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.modal-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.modal-header h3{margin:0;font-size:18px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}

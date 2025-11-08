@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Env & secrets
+.env
+.env.*.local
+users.json
+
+# Logs & runtime
+*.log
+logs/
+pids/
+pms/
+*.pid
+*.seed
+*.pid.lock
+pm2-*.log
+pm2.log
+pm2-error.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Cloudflared & certs (jangan pernah commit!)
+/root/.cloudflared/
+/etc/cloudflared/
+*.pem
+*.crt
+*.key
+*.der
+*.pfx
+*.p12
+
+# Temp
+tmp/
+.temp/
+.cache/
+
+# Build artifacts (jika ada)
+dist/
+build/
