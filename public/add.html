@@ -49,6 +49,7 @@
         <input id="ssh_user" class="input" placeholder="username">
         <input id="ssh_pass" class="input" placeholder="password (kosong = auto)">
         <input id="ssh_days" class="input" type="number" min="1" value="30">
+	<input id="ssh_limit" class="input" type="number" min="1" max="10" value="1" placeholder="Limit IP">
         <button id="btnAddSSH" class="btn ok" disabled>Tambah</button>
       </div>
       <div class="sub">Tombol aktif jika <b>username</b> terisi.</div>
@@ -153,10 +154,11 @@
     const password = $("#ssh_pass").value;
     const days = parseInt($("#ssh_days").value || "30", 10);
     outA.textContent += (outA.textContent ? "\n" : "") + `$ add ssh ${username} ${days}d ...`;
+    const limit = parseInt($("#ssh_limit").value || "1", 10);
 
     await streamJob({
       startPath: "/api/sse/add/ssh",
-      body: { username, password, days },
+      body: { username, password, days, limit },
       outEl: outA,
       onLine: (line) => {
         if (line.includes("Saldo tidak cukup")) {

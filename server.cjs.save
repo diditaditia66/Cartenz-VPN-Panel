@@ -451,80 +451,7 @@ app.get("/api/stream/job/:id", authRequired, (req, res) => {
 });
 
 
-// ===== SSE: ADD (billing & clean output) =====
-app.post("/api/sse/add/:kind", authRequired, async (req, res) => {
-  const sessUname = req.session.user.username;
-  const sessUser  = getUser(sessUname) || { username: sessUname, role: "user", balance: 0 };
-  const kind = String(req.params.kind || "").toLowerCase();
-  const { id } = newJob();
-  res.json({ jobId: id });
-  emitHeader(id, `ADD ${kind.toUpperCase()}`);
-  emitLine(id, "Menjalankan skrip …");
 
-  (async () => {
-    try {
-      const fresh = getUser(sessUname) || sessUser;
-      if ((fresh.role || "user") !== "admin") {
-        const saldo = Number(fresh.balance || 0);
-        if (saldo < PRICE_ADD) {
-          emitLine(id, `❌  Saldo tidak cukup (Rp ${saldo.toLocaleString("id-ID")}). Minimal Rp ${PRICE_ADD.toLocaleString("id-ID")}.`);
-          finishJob(id);
-          return;
-        }
-      }
-
-      let cmd = "";
-      if (kind === "ssh") {
-        const body = req.body || {};
-        const sshUser = (body.username || body.remarks || "").trim();
-        const passwordRaw = (body.password || "").toString();
-        const days = parseInt(body.days, 10) || 30;
-        const limit = Number.isFinite(parseInt(body.limit,10)) ? parseInt(body.limit,10) : 1;
-
-        if (!/^[a-zA-Z0-9_][a-zA-Z0-9_\-]{1,31}$/.test(sshUser)) { emitLine(id, "username invalid"); finishJob(id); return; }
-        if (days < 1 || days > 3650) { emitLine(id, "days out of range"); finishJob(id); return; }
-
-        const pass = passwordRaw || randPass();
-        const safePass = pass.replace(/'/g, "'\\''");
-
-        // ⬇️ kirim LIMIT IP ke skrip usernew (karena usernew kamu memang prompt 4 nilai)
-        cmd = `printf '%s\n%s\n%s\n%s\n' '${sshUser}' '${safePass}' '${days}' '${limit}' | /usr/bin/usernew`;
-      } else {
-        const cfg = ADD_MAP[kind];
-        if (!cfg) { emitLine(id, "Unsupported kind"); finishJob(id); return; }
-        const body = req.body || {};
-        const remarks = (body.remarks || "").trim();
-        const days = parseInt(body.days, 10) || 30;
-        if (!remarks) { emitLine(id, "remarks is required"); finishJob(id); return; }
-        if (days < 1 || days > 3650) { emitLine(id, "days out of range"); finishJob(id); return; }
-        cmd = cfg.feed(remarks, days);
-      }
-
-      await shStream(cmd, (line) => {
-        const clean = line.trim();
-        if (shouldKeep(clean)) emitLine(id, clean);
-      });
-
-      // ⬆️ HAPUS seluruh blok “// === Simpan limit IP === … emitLine(id, `📌 Limit IP ...`)”
-      // karena sekarang limit sudah ditangani di /usr/bin/usernew via stdin.
-
-      if ((fresh.role || "user") !== "admin") {
-        let after = Number(fresh.balance || 0) - PRICE_ADD;
-        if (after < 0) after = 0;
-        fresh.balance = after;
-        saveUser(fresh);
-        emitBalance(id, after);
-        emitLine(id, `💰 Saldo dipotong Rp ${PRICE_ADD.toLocaleString("id-ID")}. Sisa saldo: Rp ${after.toLocaleString("id-ID")}`);
-      }
-
-      emitFooter(id);
-      finishJob(id);
-    } catch (e) {
-      emitLine(id, `ERROR: ${e.message}`);
-      finishJob(id);
-    }
-  })();
-});
 
 // ===== SSE: TRIAL (Admin bebas limit; user 1x/hari + lock aman) =====
 // ===== SSE: TRIAL (Admin bebas limit & tidak kena lock) =====
@@ -635,7 +562,7 @@ function parseXrayAccounts() {
   for (const blk of ssBlocks) {
     const lines = blk.split(/\r?\n/);
     for (const line of lines) {
-      const m = line.match(/^###\s+(\S+)\s+(\d{4}-\d{2}\-\d{2})/);
+      const m = line.match(/^###\s+(\S+)\s+(\d{4}-\d{2}-\d{2})/);
       if (m) result.ss.push({ user: m[1], exp: m[2] });
     }
   }
